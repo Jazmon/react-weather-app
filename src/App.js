@@ -1,17 +1,21 @@
 // @flow
 import React, { Component } from 'react';
 import { Line as LineChart } from 'react-chartjs';
+import moment from 'moment';
 import 'whatwg-fetch';
 import logo from './logo.svg';
 import './App.css';
 import apiResponse from '../response.json';
+import Skycon from './components/Skycon';
+import DarkSky from './DarkSky';
 
+moment.locale('fi');
 // const console.log = require('console.log')('weather');
 function round(value: number, decimals: number): number {
   return Number(`${Math.round(Number(`${value}e${decimals}`))}e-${decimals}`);
 }
 
-type DarkSky = {
+type DarkSkyResponse = {
   latitude: number;
   longitude: number;
   timezone: string;
@@ -107,28 +111,6 @@ type DarkSky = {
 };
 
 const geolocationSupport = (): boolean => ('geolocation' in navigator);
-// {
-  // if ('geolocation' in navigator) {
-  //   /* geolocation is available */
-  //
-  // } else {
-  //   /* geolocation IS NOT available */
-  // }
-// };
-
-// function checkStatus(response: Response) {
-//   if (response.status >= 200 && response.status < 300) {
-//     return response;
-//   }
-//   const error = new Error(response.statusText);
-//   // $FlowIssue
-//   error.response = response;
-//   throw error;
-// }
-//
-// function parseJSON(response: Response) {
-//   return response.json();
-// }
 
 const API_KEY = 'aeb5bdaa69ec5fe79a4e6a3d4a4d4ee7';
 /* eslint-disable no-underscore-dangle */
@@ -147,7 +129,8 @@ type State = {
   canUseLocation: boolean;
   position: ?Position;
   weather: string;
-  darkSky: ?DarkSky;
+  darkSky: ?DarkSkyResponse;
+  error: ?Object;
 };
 
 type Props = {};
@@ -164,59 +147,134 @@ class App extends Component {
       position: null,
       darkSky: null,
       weather: '',
+      error: null,
     };
   }
 
   state: State;
 
   componentDidMount() {
-    if (geolocationSupport()) {
-      this.setState({ canUseLocation: true });
-      navigator.geolocation.getCurrentPosition((position) => {
-        this.setState({ position });
-      });
-    } else {
-      this.setState({ canUseLocation: false });
-    }
+    // TODO clear timeout when unmount
+    setTimeout(() => {
+      const canUseLocation = geolocationSupport();
+      this.setState({ canUseLocation });
+      if (canUseLocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          this.setState({ position });
+        });
+      }
+    }, 20);
   }
 
   componentDidUpdate(prevProps: Props, prevState: State) {
     if (this.state.position !== prevState.position) {
       if (this.state.position) {
         this.setState({ isFetching: true });
-        setTimeout(() => {
-          console.log('got fake data');
-          const data: DarkSky = apiResponse;
-          this.setState({
-            isFetching: false,
-            darkSky: data,
-            weather: data.currently.summary,
-          });
-        }, 400);
-        // fetch(`${API_BASE_URL}/${API_KEY}/${this.state.position.coords.latitude},${this.state.position.coords.longitude}`)
-        //   .then(checkStatus)
-        //   .then(parseJSON)
-        //   .then((data: DarkSky) => {
-        //     console.log('got data', data);
-        //     this.setState({
-        //       isFetching: false,
-        //       weather: data.currently.summary,
-        //     });
-        //   })
-        //   .catch((error) => {
-        //     this.setState({ isFetching: false, error: Error });
-        //     console.error('request failed', error);
-        //     console.error(error.response.statusText);
-        //     console.error(error.response.status);
+        this.getData();
+        // setTimeout(() => {
+        //   console.log('got fake data');
+        //   const data: DarkSkyResponse = apiResponse;
+        //   this.setState({
+        //     isFetching: false,
+        //     darkSky: data,
+        //     weather: data.currently.summary,
         //   });
+        // }, 10);
       }
     }
   }
 
-  render() {
-    const { weather, darkSky, canUseLocation, position, isFetching } = this.state;
+  getData = async () => {
+    const forecast = new DarkSky(API_KEY);
+    if (!this.state.position) {
+      return;
+    }
+    const { latitude, longitude } = this.state.position.coords;
+
+    forecast
+      .latitude(latitude)
+      .longitude(longitude)          // required: longitude, string.
+      // .time('2016-01-28')             // optional: date, string 'YYYY-MM-DD'.
+      .units('si')                    // optional: units, string, refer to API documentation.
+      .language('en')                 // optional: language, string, refer to API documentation.
+      // .exclude('minutely,daily')      // optional: exclude, string, refer to API documentation.
+      // .extendHourly(true)             // optional: extend, boolean, refer to API documentation.
+      .get()                          // execute your get request.
+      .then((data: DarkSkyResponse) => {                  // handle your success response.
+        this.setState({
+          isFetching: false,
+          weather: data.currently.summary,
+          darkSky: data,
+        });
+      })
+      .catch(error => {                 // handle your error response.
+        this.setState({ isFetching: false, error: Error });
+        console.error('request failed', error);
+        console.error(error.response.statusText);
+        console.error(error.response.status);
+      });
+  }
+
+  renderLoading = () => (
+    <div>
+      <p>Loading...</p>
+    </div>
+  )
+
+  renderData = () => {
+    // $FlowIssue
+    const darkSky: DarkSkyResponse = this.state.darkSky;
+    return (
+      <div>
+        <h3>{darkSky.currently.summary}</h3>
+        <Skycon
+          // $FlowIssue
+          icon={darkSky.currently.icon.toUpperCase().replace(/-/g, '_')}
+          // $FlowIssue
+          color="#000000"
+          autoPlay={true}
+        />
+        <span>{darkSky.currently.icon}</span>
+        <p>temperature: {darkSky.currently.temperature}℃</p>
+        <table>
+          <thead>
+            <tr>
+              <th>time</th>
+              <th>summary</th>
+              <th>icon</th>
+              <th>temperature</th>
+              <th>wind speed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {darkSky.hourly.data.map(hourly => (
+              <tr key={`hourly-${String(hourly.time)}`}>
+                <td>{moment(hourly.time * 1000).format('LT')}</td>
+                <td>{hourly.summary}</td>
+                <td>
+                  <Skycon
+                    color="#000000"
+                    icon={hourly.icon.toUpperCase().replace(/-/g, '_')}
+                    autoPlay={true}
+                  />
+                </td>
+                <td>{hourly.temperature}℃</td>
+                <td>{String(hourly.windSpeed)} m/s</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  renderGraph = () => {
+    // $FlowIssue
+    const darkSky: DarkSkyResponse = this.state.darkSky;
+    const labels = darkSky.hourly.data.map(hourly => moment(hourly.time * 1000).format('LT'));
+    const data = darkSky.hourly.data.map(hourly => hourly.temperature);
     const chartData = {
-      labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+      labels,
       datasets: [
         {
           // label: 'My First dataset',
@@ -237,7 +295,7 @@ class App extends Component {
           // pointHoverBorderWidth: 2,
           // pointRadius: 1,
           // pointHitRadius: 10,
-          data: [65, 59, 80, 81, 56, 55, 40],
+          data,
           // spanGaps: false,
         },
       ],
@@ -249,11 +307,17 @@ class App extends Component {
         text: 'foo',
       },
     };
-
     const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
+    // const windowHeight = window.innerHeight;
     const width = windowWidth - 42;
     const height = width * 2.5 / 6;
+    return (
+      <LineChart data={chartData} options={chartOptions} width={width} height={height} />
+    );
+  }
+
+  render() {
+    const { weather, darkSky, canUseLocation, position, isFetching } = this.state;
 
     return (
       <div className="App">
@@ -284,14 +348,9 @@ class App extends Component {
             </tr>
           </table>
         </div>
-        {!!darkSky &&
-          <div>
-            <h3>{darkSky.currently.summary}</h3>
-            <span>{darkSky.currently.icon}</span>
-            <p>temperature: {darkSky.currently.temperature}℃</p>
-          </div>
-        }
-        {/* <LineChart data={chartData} options={chartOptions} width={width} height={height} /> */}
+        {!!isFetching && this.renderLoading()}
+        {!isFetching && !!darkSky && this.renderData()}
+        {!isFetching && !!darkSky && this.renderGraph()}
       </div>
     );
   }
