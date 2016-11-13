@@ -4,6 +4,7 @@ module.exports = {
     node: true,
     es6: true,
     browser: true,
+    jest: true,
   },
   globals: {
     fetch: true,

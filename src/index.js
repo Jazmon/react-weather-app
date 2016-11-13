@@ -1,3 +1,4 @@
+// @flow
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';
@@ -9,7 +10,8 @@ ReactDOM.render(
 );
 
 if (module.hot) {
-  module.hot.accept('./App', () => {
+  (module: any).hot.accept('./App', () => {
+    // eslint-disable-next-line global-require
     const NextApp = require('./App').default;
     ReactDOM.render(
       <NextApp />,

@@ -15,15 +15,21 @@
     "react-scripts": "0.7.0"
   },
   "dependencies": {
+    "chart.js": "^1.1.1",
+    "debug": "^2.3.2",
     "eslint-plugin-babel": "^3.3.0",
     "react": "^15.3.2",
-    "react-dom": "^15.3.2"
+    "react-chartjs": "^0.8.0",
+    "react-dom": "^15.3.2",
+    "whatwg-fetch": "^1.0.0"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "./node_modules/.bin/eslint -c .eslintrc.js src",
+    "lint:fix": "./node_modules/.bin/eslint -c .eslintrc.js src --fix"
   },
   "main": "index.js",
   "author": "Atte Huhtakangas <atte.huhtakangas@gmail.com>",
